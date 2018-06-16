@@ -28,12 +28,12 @@ USER sodium_user
 WORKDIR /home/sodium_user
 
 COPY android-ndk-r16b-linux-x86_64.zip /home/sodium_user/
-COPY libsodium-1.0.12.tar.gz /home/sodium_user/
+COPY libsodium-1.0.14.tar.gz /home/sodium_user/
 RUN unzip -qq /home/sodium_user/android-ndk-r16b-linux-x86_64.zip -d /home/sodium_user/
-RUN tar xf /home/sodium_user/libsodium-1.0.12.tar.gz -C /home/sodium_user/
+RUN tar xf /home/sodium_user/libsodium-1.0.14.tar.gz -C /home/sodium_user/
 RUN python3 ${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py --arch ${target_arch} --api ${target_api} --install-dir ${TOOLCHAIN_DIR}
 
-WORKDIR /home/sodium_user/libsodium-1.0.12
+WORKDIR /home/sodium_user/libsodium-1.0.14
 RUN ./autogen.sh
 RUN ./configure --prefix=/home/sodium_user/libsodium_${TARGET_ARCH} --disable-soname-versions --host=${CROSS_COMPILE}
 RUN make
