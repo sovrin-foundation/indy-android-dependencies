@@ -7,11 +7,12 @@ mkdir -p $ARM64_DIR
 mkdir -p $ARMV7_DIR
 mkdir -p $ARMx86_DIR
 
-git clone https://github.com/nsivraj/openssl_for_ios_and_android.git
+git clone https://github.com/faisal00813/openssl_for_ios_and_android.git
 pushd openssl_for_ios_and_android/tools
+git checkout tags/openssl-1.1.0f_curl-7.53.1
 
 sh ./build-openssl4android.sh android-armeabi 16 #for armeabi-v7a
-sh ./build-openssl4android.sh android64-aarch64 21
+sh ./build-openssl4android.sh android64-aarch64 21 #for arm64
 sh ./build-openssl4android.sh android-x86 16 #for x86
 popd
 
