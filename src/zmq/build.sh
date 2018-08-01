@@ -1,59 +1,166 @@
 #!/bin/bash
 
-TARGET_ARCH=$1
-TARGET_API=$2
-CROSS_COMPILE=$3
+set -e
 
-if [ -z "${TARGET_ARCH}" ]; then
-    echo STDERR "Missing TARGET_ARCH argument"
-    echo STDERR "e.g. x86 or arm"
-    exit 1 
-fi
+NDK_VERSION=android-ndk-r16b
+NDK_API=21
+STL=gnustl
+COMPILER=clang
+RED="[0;31m"
+GREEN="[0;32m"
+BLUE="[0;34m"
+NC="[0m"
+ESCAPE="\033"
+UNAME=$(uname | tr '[:upper:]' '[:lower:]')
+NDK=${NDK_VERSION}-${UNAME}-$(uname -m)
 
-if [ -z "${TARGET_API}" ]; then
-    echo STDERR "Missing TARGET_API argument"
-    echo STDERR "e.g. 21"
-    exit 1 
-fi
 
-if [ -z "${CROSS_COMPILE}" ]; then
-    echo STDERR "Missing CROSS_COMPILE argument"
-    echo STDERR "e.g. i686-linux-android"
-    exit 1 
-fi
-
-if [ -z "${SODIUM_LIB_DIR}" ]; then
-    SODIUM_LIB_DIR="libsodium_${TARGET_ARCH}/lib"
-    if [ -d "${SODIUM_LIB_DIR}" ] ; then
-        echo "Found ${SODIUM_LIB_DIR}"
-    elif [ -z "$4" ] ; then
-        echo STDERR "Missing SODIUM_LIB_DIR argument and environment variable"
-        echo STDERR "e.g. set SODIUM_LIB_DIR=<path> for environment or libsodium_${TARGET_ARCH}/lib"
+if [ ! -d "${UNAME}-${NDK_VERSION}" ] ; then
+    if [ ! -f "${NDK}.zip" ] ; then
+        echo "Downloading ${NDK}"
+        wget -q https://dl.google.com/android/repository/${NDK}.zip
+    fi
+    if [ ! -f "${NDK}.zip" ] ; then
+        echo STDERR "Can't find ${NDK}"
         exit 1
-    else
-        SODIUM_LIB_DIR=$4
-    fi    
+    fi
+    echo -e "${ESCAPE}${GREEN}Extracting ${NDK}${ESCAPE}${NC}"
+    unzip -o -qq ${NDK}.zip
+    mv ${NDK_VERSION} ${UNAME}-${NDK_VERSION}
+fi
+export ANDROID_NDK_ROOT="${PWD}/${UNAME}-${NDK_VERSION}"
+
+ZMQ_VERSION=4.2.5
+
+if [ ! -d "zeromq-${ZMQ_VERSION}" ] ; then
+    if [ ! -f "zeromq-${ZMQ_VERSION}.tar.gz" ] ; then
+        echo "Downloading zeromq-${ZMQ_VERSION}"
+        wget -q https://github.com/zeromq/libzmq/releases/download/v${ZMQ_VERSION}/zeromq-${ZMQ_VERSION}.tar.gz || exit 1
+    fi 
+    if [ ! -f "zeromq-${ZMQ_VERSION}.tar.gz" ] ; then
+        echo "Can't find zeromq-${ZMQ_VERSION}.tar.gz"
+        exit 1
+    fi
+    echo "Extracting zeromq-${ZMQ_VERSION}"
+    tar xf zeromq-${ZMQ_VERSION}.tar.gz
 fi
 
-if [ ! -f "android-ndk-r16b-linux-x86_64.zip" ] ; then
-    echo "Downloading android-ndk-r16b-linux-x86_64.zip"
-    wget -q https://dl.google.com/android/repository/android-ndk-r16b-linux-x86_64.zip 
+if [ $# -gt 0 ] ; then
+    archs=$@
 else
-    echo "Skipping download android-ndk-r16b-linux-x86_64.zip"
+    archs=(arm armv7 arm64 x86 x86_64)
 fi
 
-if [ ! -f "zeromq-4.2.5.tar.gz" ] ; then
-    echo "Downloading zeromq-4.2.5.tar.gz"
-    wget -q https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.tar.gz
-else
-    echo "Skipping download zeromq-4.2.5.tar.gz"
-fi
+echo -e "${ESCAPE}${GREEN}Building for ${archs[@]}${ESCAPE}${NC}"
+OLDPATH=${PATH}
 
+export ZMQ_HAVE_ANDROID=1
 
-docker build -t zeromq-android:latest . --build-arg target_arch=${TARGET_ARCH} --build-arg target_api=${TARGET_API} --build-arg cross_compile=${CROSS_COMPILE} --build-arg sodium_lib_dir=${SODIUM_LIB_DIR} && \
-docker run zeromq-android:latest && \
-docker_id=$(docker ps -a | grep zeromq-android:latest | grep Exited | tail -n 1 | cut -d ' ' -f 1) && \
-docker_image_id=$(docker image ls | grep zeromq-android | perl -pe 's/\s+/ /g' | cut -d ' ' -f 3) && \
-docker cp ${docker_id}:/home/zeromq_user/libzmq_${TARGET_ARCH}.zip . && \
-docker rm ${docker_id} > /dev/null && \
-docker rmi ${docker_image_id} > /dev/null
+for arch in ${archs[@]}; do
+    case ${arch} in
+        "arm")
+            export CFLAGS="-Os -mthumb -marm -march=armv6"
+            export CXXFLAGS="-Os -mthumb -marm -march=armv6"
+            TARGET_HOST="arm-linux-androideabi"
+            TARGET_ARCH="arm"
+            ;;
+        "armv7")
+            export CFLAGS="-Os -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -marm -march=armv7-a"
+            export CXXFLAGS="-Os -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -marm -march=armv7-a"
+            export LDFLAGS="-march=armv7-a -Wl,--fix-cortex-a8"
+            TARGET_HOST="arm-linux-androideabi"
+            TARGET_ARCH="arm"
+            ;;
+        "arm64")
+            export CFLAGS="-Os -march=armv8-a"
+            export CXXFLAGS="-Os -march=armv8-a"
+            TARGET_HOST="aarch64-linux-android"
+            TARGET_ARCH="arm64"
+            echo "${ESCAPE}${RED}See https://github.com/zeromq/libzmq/issues/3131 if you can't build it for 64-bit${ESCAPE}${NC}"
+            ;;
+        "mips")
+            export CFLAGS="-Os"
+            export CXXFLAGS="-Os"
+            TARGET_HOST="mipsel-linux-android"
+            TARGET_ARCH="mips"
+            ;;
+        "mips64")
+            export CFLAGS="-Os -march=mips64r6"
+            export CXXFLAGS="-Os -march=mips64r6"
+            TARGET_HOST="mips64el-linux-android"
+            TARGET_ARCH="mips64"
+            ;;
+        "x86")
+            export CFLAGS="-Os"
+            export CXXFLAGS="-Os"
+	        TARGET_HOST="i686-linux-android"
+            TARGET_ARCH="x86"
+            ;;
+        "x86_64")
+            export CFLAGS="-Os"
+            export CXXFLAGS="-Os"
+	        TARGET_HOST="x86_64-linux-android"
+            TARGET_ARCH="x86_64"
+            echo "${ESCAPE}${RED}See https://github.com/zeromq/libzmq/issues/3131 if you can't build it for 64-bit${ESCAPE}${NC}"
+            ;;
+        *)
+            echo "Unknown architecture"
+            exit 1
+            ;;
+    esac
+
+    export NDK_TOOLCHAIN_DIR="${PWD}/${UNAME}-${TARGET_ARCH}"
+    if [ ! -d "${NDK_TOOLCHAIN_DIR}" ] ; then
+        echo "Creating toolchain directory ${NDK_TOOLCHAIN_DIR}"
+        python3 ${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py --arch ${TARGET_ARCH} --stl=gnustl --api ${NDK_API} --install-dir ${NDK_TOOLCHAIN_DIR} || exit 1
+    fi
+    SODIUM_DIR="${PWD}/sodium_prebuilt/${arch}"
+    if [ ! -d "${SODIUM_DIR}" ] ; then
+        echo "Cannot find ${SODIUM_DIR}"
+        echo "ZeroMQ depends on libsodium"
+        exit 1
+    fi
+    export PATH=${NDK_TOOLCHAIN_DIR}/bin:${OLDPATH}
+    export SODIUM_LIB_DIR=${SODIUM_DIR}/lib
+    TGT_DIR="${PWD}/prebuilt/libzmq_${arch}"
+    rm -rf ${TGT_DIR}
+    mkdir -p ${TGT_DIR}
+
+    echo -e "${ESCAPE}${BLUE}Making ${arch}${ESCAPE}${NC}"
+
+    command pushd "zeromq-${ZMQ_VERSION}" > /dev/null
+
+    ./autogen.sh
+    ./configure CPP=${NDK_TOOLCHAIN_DIR}/bin/${TARGET_HOST}-cpp \
+                 CC=${NDK_TOOLCHAIN_DIR}/bin/${TARGET_HOST}-${COMPILER} \
+                CXX=${NDK_TOOLCHAIN_DIR}/bin/${TARGET_HOST}-${COMPILER}++ \
+                 LD=${NDK_TOOLCHAIN_DIR}/bin/${TARGET_HOST}-ld \
+                 AS=${NDK_TOOLCHAIN_DIR}/bin/${TARGET_HOST}-as \
+                 AR=${NDK_TOOLCHAIN_DIR}/bin/${TARGET_HOST}-ar \
+             RANLIB=${NDK_TOOLCHAIN_DIR}/bin/${TARGET_HOST}-ranlib \
+             CFLAGS="-I${TGT_DIR}/include/ -D__ANDROID_API__=21 -fPIC" \
+           CPPFLAGS="-I${TGT_DIR}/include/ -D__ANDROID_API__=21 -fPIC" \
+           CXXFLAGS="-I${TGT_DIR}/include/ -D__ANDROID_API__=21 -fPIC" \
+            LDFLAGS="-I${TGT_DIR}/lib/ -D__ANDROID_API__=21 -fPIC" \
+               LIBS="-lc -lgcc -ldl -latomic" \
+    PKG_CONFIG_PATH="${TGT_DIR}/lib/pkgconfig" \
+                --host=${TARGET_HOST} \
+                --prefix=${TGT_DIR} \
+                --with-libsodium=${SODIUM_DIR} \
+                --without-docs \
+                --enable-static \
+                --with-sysroot=${NDK_TOOLCHAIN_DIR}/sysroot
+    make clean
+    make
+    make install
+
+    command popd > /dev/null
+
+    rm -rf ${TGT_DIR}/lib/pkgconfig
+    rm -rf ${TGT_DIR}/bin
+    unset CFLAGS
+    unset CXXFLAGS
+    unset LDFLAGS
+
+done
+exit 0
