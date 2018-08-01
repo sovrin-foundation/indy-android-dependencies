@@ -114,7 +114,7 @@ for arch in ${archs[@]}; do
         echo "Creating toolchain directory ${NDK_TOOLCHAIN_DIR}"
         python3 ${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py --arch ${TARGET_ARCH} --stl=gnustl --api ${NDK_API} --install-dir ${NDK_TOOLCHAIN_DIR} || exit 1
     fi
-    SODIUM_DIR="${PWD}/sodium_prebuilt/${arch}"
+    SODIUM_DIR="${PWD}/sodium_prebuilt/libsodium_${arch}"
     if [ ! -d "${SODIUM_DIR}" ] ; then
         echo "Cannot find ${SODIUM_DIR}"
         echo "ZeroMQ depends on libsodium"

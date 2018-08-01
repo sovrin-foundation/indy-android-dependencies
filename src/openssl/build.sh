@@ -138,7 +138,7 @@ for arch in ${archs[@]}; do
     command popd > /dev/null
 
     if [ ${arch} = "arm" ] ; then
-        cp -R ${TGT_DIR} ${PWD}/openssl_prebuilt/openssl_armv7
+        cp -R ${TGT_DIR} ${PWD}/prebuilt/openssl_armv7
     fi
 done
 exit 0
