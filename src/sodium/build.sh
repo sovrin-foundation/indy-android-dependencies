@@ -3,7 +3,6 @@
 set -e
 
 NDK_VERSION=android-ndk-r16b
-NDK_API=21
 RED="[0;31m"
 GREEN="[0;32m"
 BLUE="[0;34m"
@@ -57,37 +56,44 @@ for arch in ${archs[@]}; do
             export CFLAGS="-Os -mthumb -marm -march=armv6"
             TARGET_HOST="arm-linux-androideabi"
             TARGET_ARCH="arm"
+            NDK_API=16
             ;;
         "armv7")
             export CFLAGS="-Os -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -marm -march=armv7-a"
             export LDFLAGS="-march=armv7-a -Wl,--fix-cortex-a8"
             TARGET_HOST="arm-linux-androideabi"
             TARGET_ARCH="arm"
+            NDK_API=16
             ;;
         "arm64")
             export CFLAGS="-Os -march=armv8-a"
             TARGET_HOST="aarch64-linux-android"
             TARGET_ARCH="arm64"
+            NDK_API=21
             ;;
         "mips")
             export CFLAGS="-Os"
             TARGET_HOST="mipsel-linux-android"
             TARGET_ARCH="mips"
+            NDK_API=16
             ;;
         "mips64")
             export CFLAGS="-Os -march=mips64r6"
             TARGET_HOST="mips64el-linux-android"
             TARGET_ARCH="mips64"
+            NDK_API=21
             ;;
         "x86")
             export CFLAGS="-Os -march=i686"
 	        TARGET_HOST="i686-linux-android"
             TARGET_ARCH="x86"
+            NDK_API=16
             ;;
         "x86_64")
             export CFLAGS="-Os -march=westmere"
 	        TARGET_HOST="x86_64-linux-android"
             TARGET_ARCH="x86_64"
+            NDK_API=21
             ;;
         *)
             echo "Unknown architecture"

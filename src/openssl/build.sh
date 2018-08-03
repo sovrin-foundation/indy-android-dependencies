@@ -3,7 +3,6 @@
 set -e
 
 NDK_VERSION=android-ndk-r16b
-NDK_API=21
 RED="[0;31m"
 GREEN="[0;32m"
 BLUE="[0;34m"
@@ -54,10 +53,6 @@ OLDPATH=$PATH
 
 for arch in ${archs[@]}; do
     export NDK_TOOLCHAIN_DIR="${PWD}/${UNAME}-${arch}"
-    if [ ! -d "${NDK_TOOLCHAIN_DIR}" ] ; then
-        echo "Creating toolchain directory ${NDK_TOOLCHAIN_DIR}"
-        python3 ${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py --arch ${arch} --stl=gnustl --api ${NDK_API} --install-dir ${NDK_TOOLCHAIN_DIR} || exit 1
-    fi
     xCFLAGS="-D__ANDROID_API__=21 -mandroid -O3 -lc -lgcc -ldl"
     case ${arch} in
         "arm")
@@ -65,18 +60,21 @@ for arch in ${archs[@]}; do
             _ANDROID_ARCH=arch-arm
             _ANDROID_EABI=arm-linux-androideabi-4.9
             configure_platform="android-armeabi"
+            NDK_API=16
             ;;
         "arm64")
             _ANDROID_TARGET_SELECT=arch-arm64
             _ANDROID_ARCH=arch-arm64
             _ANDROID_EABI=aarch64-linux-android-4.9
             configure_platform="android64-aarch64"
+            NDK_API=21
             ;;
         "mips")
             _ANDROID_TARGET_SELECT=arch-mips
             _ANDROID_ARCH=arch-mips
             _ANDROID_EABI=mipsel-linux-android-4.9
             configure_platform="android-mips"
+            NDK_API=16
             ;;
         "mips64")
             _ANDROID_TARGET_SELECT=arch-mips64
@@ -84,12 +82,14 @@ for arch in ${archs[@]}; do
             _ANDROID_EABI=mips64el-linux-android-4.9
             xLIB="/lib64"
             configure_platform="linux-generic64 -DB_ENDIAN"
+            NDK_API=21
             ;;
         "x86")
             _ANDROID_TARGET_SELECT=arch-x86
             _ANDROID_ARCH=arch-x86
             _ANDROID_EABI=x86-4.9
             configure_platform="android-x86"
+            NDK_API=16
             ;;
         "x86_64")
             _ANDROID_TARGET_SELECT=arch-x86_64
@@ -97,10 +97,16 @@ for arch in ${archs[@]}; do
             _ANDROID_EABI=x86_64-4.9
             xLIB="/lib64"
             configure_platform="android64"
+            NDK_API=21
             ;;
         *)
             configure_platform="linux-elf" ;;
     esac
+
+    if [ ! -d "${NDK_TOOLCHAIN_DIR}" ] ; then
+        echo "Creating toolchain directory ${NDK_TOOLCHAIN_DIR}"
+        python3 ${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py --arch ${arch} --stl=gnustl --api ${NDK_API} --install-dir ${NDK_TOOLCHAIN_DIR} || exit 1
+    fi
 
     TGT_DIR="${PWD}/prebuilt/openssl_${arch}"
     rm -rf ${TGT_DIR}
