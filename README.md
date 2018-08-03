@@ -15,10 +15,10 @@ prebuilt folder contains libraries built for `arm`, `armv7`, `arm64`, `x86`, `x8
 execute build.sh in each folder to build the respective dependency
 
 e.g
-- openssl `./build.sh`
+- in `src/openssl` run `./build.sh`
 	- this will generate openssl for all architecures at once.
-- sodium `./build.sh`
+- in `src/sodium` run `./build.sh`
 	- this will generate sodium for all architecures at once.
-- zmq 
+- in `src/zmq` run `./build.sh`
 	- Zmq requires libsoidum to build. After building libsodium for the compatible architecture copy the sodium/prebuilt folder to zmq folder and rename the copied folder to sodium_prebuilt
 	- `./build.sh` this will generate zmq for all architecures at once.
